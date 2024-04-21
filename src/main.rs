@@ -7,7 +7,7 @@ use std::{
 use gl::types::*;
 use glutin::{
     config::{ConfigTemplateBuilder, GlConfig},
-    context::{ContextApi, ContextAttributesBuilder, PossiblyCurrentContext},
+    context::{ContextApi, ContextAttributesBuilder, GlProfile, PossiblyCurrentContext},
     display::{GetGlDisplay, GlDisplay},
     prelude::{GlSurface, NotCurrentGlContext},
     surface::{Surface as GlutinSurface, SurfaceAttributesBuilder, WindowSurface},
@@ -23,6 +23,9 @@ use winit::{
 
 use skia_safe::{
     gpu::{self, backend_render_targets, gl::FramebufferInfo, SurfaceOrigin},
+    graphics::{
+        set_resource_cache_single_allocation_byte_limit, set_resource_cache_total_bytes_limit,
+    },
     Color, ColorType, Surface,
 };
 use skia_safe::{gradient_shader, Matrix, Paint, PaintJoin, PaintStyle, Path, Point, TileMode};
@@ -37,6 +40,9 @@ fn main() {
     let template = ConfigTemplateBuilder::new()
         .with_alpha_size(8)
         .with_transparency(true);
+
+    set_resource_cache_total_bytes_limit(1000000); // 1MB
+    set_resource_cache_single_allocation_byte_limit(Some(500000)); // 0.5MB
 
     let display_builder = DisplayBuilder::new().with_window_builder(Some(winit_window_builder));
     let (window, gl_config) = display_builder
@@ -61,6 +67,7 @@ fn main() {
         .unwrap();
     println!("Picked a config with {} samples", gl_config.num_samples());
     let window = window.expect("Could not create window with OpenGL context");
+    window.set_ime_allowed(true);
     let raw_window_handle = window.raw_window_handle();
 
     // The context creation part. It can be created before surface and that's how
@@ -71,6 +78,7 @@ fn main() {
     // Since glutin by default tries to create OpenGL core context, which may not be
     // present we should try gles.
     let fallback_context_attributes = ContextAttributesBuilder::new()
+        .with_profile(GlProfile::Core)
         .with_context_api(ContextApi::Gles(None))
         .build(Some(raw_window_handle));
     let not_current_gl_context = unsafe {
@@ -170,9 +178,9 @@ fn main() {
     //
     // https://github.com/rust-skia/rust-skia/issues/476
     struct Env {
+        gr_context: skia_safe::gpu::DirectContext,
         surface: Surface,
         gl_surface: GlutinSurface<WindowSurface>,
-        gr_context: skia_safe::gpu::DirectContext,
         gl_context: PossiblyCurrentContext,
         window: Window,
     }
@@ -243,6 +251,7 @@ fn main() {
             let canvas = env.surface.canvas();
             canvas.clear(Color::WHITE);
             render_frame(frame % 360, 12, 60, canvas);
+            env.window.pre_present_notify();
             env.gr_context.flush_and_submit();
             env.gl_surface.swap_buffers(&env.gl_context).unwrap();
         }
