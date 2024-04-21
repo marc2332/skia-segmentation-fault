@@ -1,0 +1,16 @@
+[package]
+name = "skia-segmentation-fault"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+gl = "0.14.0"
+glutin = "0.31.2"
+glutin-winit = "0.4.2"
+raw-window-handle = "0.5.2"
+winit = "0.29.9"
+skia-safe = { version = "0.72.0", features = ["gl", "textlayout", "svg"] }
+
+[target."cfg(target_os = \"linux\")".dependencies.skia-safe]
+version = "0.72.0"
+features = ["gl", "textlayout", "svg", "x11", "wayland"]
